@@ -76,7 +76,7 @@ public class LessSourceTest {
         
         FileResource fileResource = new FileResource(sourceFile);
 
-        lessSource = new LessSource(fileResource);
+        lessSource = new LessSource(fileResource, Charset.defaultCharset(), null);
         
         assertEquals(sourceFile.getAbsolutePath(), lessSource.getAbsolutePath());
         assertEquals("content", lessSource.getContent());
@@ -91,13 +91,13 @@ public class LessSourceTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void testNewLessSourceFileNull() throws Exception {
-        lessSource = new LessSource((Resource)null);
+        lessSource = new LessSource((Resource)null, Charset.defaultCharset(), null);
     }
     
     @Test(expected = IOException.class)
     public void testNewLessSourceFileNotFound() throws Exception {
         when(file.exists()).thenReturn(false);
-        lessSource = new LessSource(new FileResource(file));
+        lessSource = new LessSource(new FileResource(file), Charset.defaultCharset(), null);
     }
     
     @Test
@@ -108,7 +108,7 @@ public class LessSourceTest {
         when(import2.getLastModifiedIncludingImports()).thenReturn(0l);
         when(import3.getLastModifiedIncludingImports()).thenReturn(0l);
         
-        lessSource = new LessSource(new FileResource(file));
+        lessSource = new LessSource(new FileResource(file), Charset.defaultCharset(), null);
         FieldUtils.writeField(lessSource, "imports", imports, true);
         
         assertEquals(1l, lessSource.getLastModifiedIncludingImports());
@@ -122,7 +122,7 @@ public class LessSourceTest {
         when(import2.getLastModifiedIncludingImports()).thenReturn(2l);
         when(import3.getLastModifiedIncludingImports()).thenReturn(0l);
         
-        lessSource = new LessSource(new FileResource(file));
+        lessSource = new LessSource(new FileResource(file), Charset.defaultCharset(), null);
         FieldUtils.writeField(lessSource, "imports", imports, true);
         
         assertEquals(2l, lessSource.getLastModifiedIncludingImports());
@@ -143,7 +143,7 @@ public class LessSourceTest {
     private String readLessSourceWithEncoding(String encoding) throws IOException, IllegalAccessException {
         URL sourceUrl = getClass().getResource("/compatibility/utf8-content.less");
         File sourceFile = new File(sourceUrl.getFile());
-        LessSource lessSource = new LessSource(new FileResource(sourceFile), Charset.forName(encoding));
+        LessSource lessSource = new LessSource(new FileResource(sourceFile), Charset.forName(encoding), null);
         return (String) FieldUtils.readField(lessSource, "content", true);
     }
 
