@@ -34,6 +34,7 @@ import org.lesscss.logging.LessLoggerFactory;
  * Represents the metadata and content of a LESS source.
  *
  * @author Marcel Overdijk
+ * @author Timo Tiuraniemi
  */
 public class LessSource {
 
@@ -52,23 +53,6 @@ public class LessSource {
     /**
      * Constructs a new <code>LessSource</code>.
      * <p>
-     * This will read the metadata and content of the LESS source, and will automatically resolve the imports.
-     * </p>
-     * <p>
-     * The resource is read using the default Charset of the platform
-     * </p>
-     *
-     * @param resource The <code>File</code> reference to the LESS source to read.
-     * @throws FileNotFoundException If the LESS source (or one of its imports) could not be found.
-     * @throws IOException If the LESS source cannot be read.
-     */
-    public LessSource(Resource resource) throws IOException {
-        this(resource, Charset.defaultCharset());
-    }
-
-    /**
-     * Constructs a new <code>LessSource</code>.
-     * <p>
      * This will read the metadata and content of the LESS resource, and will automatically resolve the imports.
      * </p>
      *
@@ -77,16 +61,18 @@ public class LessSource {
      * @throws FileNotFoundException If the LESS resource (or one of its imports) could not be found.
      * @throws IOException If the LESS resource cannot be read.
      */
-    public LessSource(Resource resource, Charset charset) throws IOException {
+    public LessSource(Resource resource, Charset charset, Map<String, LessSource> existingImports) throws IOException {
         if (resource == null) {
             throw new IllegalArgumentException("Resource must not be null.");
         }
         if (!resource.exists()) {
             throw new IOException("Resource " + resource + " not found.");
         }
+    	logger.debug("Creating LESS source for resource %s with charset %s", resource.getName(), charset.displayName());
         this.resource = resource;
         this.content = this.normalizedContent = loadResource(resource, charset);
-        resolveImports();
+        resolveImports(existingImports);
+        logger.debug("Resource %s has %d imports", resource.getName(), this.imports.size());
     }
 
     /**
@@ -98,7 +84,8 @@ public class LessSource {
      * @throws IOException
      */
     public LessSource(File input) throws IOException {
-        this( new FileResource(input) );
+        this( new FileResource(input) , Charset.defaultCharset(), null);
+    	logger.debug("Creating LESS source for file %s", input.getName());
     }
 
     private String loadResource(Resource resource, Charset charset) throws IOException {
@@ -189,23 +176,24 @@ public class LessSource {
         return imports;
     }
 
-    private void resolveImports() throws IOException {
+    private void resolveImports(Map<String, LessSource> existingImports) throws IOException {
         Matcher importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
         while (importMatcher.find()) {
             String importedResource = importMatcher.group(5);
             importedResource = importedResource.matches(".*\\.(le?|c)ss$") ? importedResource : importedResource + ".less";
             String importType = importMatcher.group(3)==null ? importedResource.substring(importedResource.lastIndexOf(".") + 1) : importMatcher.group(3);
             if (importType.equals("less")) {
-                logger.debug("Importing %s", importedResource);
-
-                if( !imports.containsKey(importedResource) ) {
-                    LessSource importedLessSource = new LessSource(getImportedResource(importedResource));
-                    imports.put(importedResource, importedLessSource);
+                logger.debug("Importing %s, %s existing imports", importedResource, existingImports == null ? "no" : String.valueOf(existingImports.size()));                
+                if( !imports.containsKey(importedResource) && (existingImports == null || !existingImports.containsKey(importedResource))) {
+                	logger.debug("Adding %s to imports", importedResource);
+                    LessSource importedLessSource = new LessSource(getImportedResource(importedResource), Charset.defaultCharset(), this.imports);
+                    this.imports.put(importedResource, importedLessSource);
 
                     normalizedContent = includeImportedContent(importedLessSource, importMatcher);
                     importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
                 } else {
-                    normalizedContent = normalizedContent.substring(0, importMatcher.start(1)) + normalizedContent.substring(importMatcher.end(1));
+                	logger.debug("%s already in imports", importedResource);
+                	normalizedContent = normalizedContent.substring(0, importMatcher.start(1)) + normalizedContent.substring(importMatcher.end(1));
                     importMatcher = IMPORT_PATTERN.matcher(normalizedContent);
                 }
             }
